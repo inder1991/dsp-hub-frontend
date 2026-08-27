@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import type { AuthPrincipal } from "../auth/types";
 import type { ExternalLinks, HealthSummary } from "../types/dashboard";
 import { ArrowRightIcon, BellIcon, ChevronDownIcon, SearchIcon } from "./Icons";
 import { StatusMark } from "./StatusMark";
@@ -9,21 +10,32 @@ interface TopbarProps {
   health: HealthSummary;
   links: ExternalLinks;
   onPlanned: (label: string) => void;
+  adminMode?: boolean;
+  principal: AuthPrincipal;
+  onSignOut: () => Promise<void>;
 }
 
-export function Topbar({ health, links, onPlanned }: TopbarProps) {
+export function Topbar({ health, links, onPlanned, adminMode = false, principal, onSignOut }: TopbarProps) {
   const [healthOpen, setHealthOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [query, setQuery] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setHealthOpen(false);
       }
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
     }
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setHealthOpen(false);
+      if (event.key === "Escape") {
+        setHealthOpen(false);
+        setAccountOpen(false);
+      }
     }
     document.addEventListener("pointerdown", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
@@ -49,10 +61,16 @@ export function Topbar({ health, links, onPlanned }: TopbarProps) {
   const healthDetail = hasAffectedSystems
     ? "Service owners are investigating the current disruption."
     : "No widespread DSP issues are currently reported.";
+  const initials = principal.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "DU";
 
   return (
     <header className="topbar">
-      <a className="brand" href="#home" aria-label="DSP home">DSP</a>
+      <a className="brand" href={adminMode ? "#admin" : "#home"} aria-label={adminMode ? "DSP admin home" : "DSP home"}>DSP {adminMode && <span>Admin</span>}</a>
       <div className="topbar-workspace">
         <form className="global-search" role="search" onSubmit={handleSearch}>
           <SearchIcon />
@@ -108,16 +126,36 @@ export function Topbar({ health, links, onPlanned }: TopbarProps) {
             )}
           </div>
           <span className="topbar-action-divider" aria-hidden="true" />
-          <button
-            className="user-control"
-            type="button"
-            aria-label="Open account menu for Alex Morgan"
-            onClick={() => onPlanned("User account")}
-          >
-            <span className="user-avatar" aria-hidden="true">AM</span>
-            <span className="user-name">Alex Morgan</span>
-            <ChevronDownIcon />
-          </button>
+          <div className="account-control" ref={accountRef}>
+            <button
+              className="user-control"
+              type="button"
+              aria-label={`Open account menu for ${principal.displayName}`}
+              aria-expanded={accountOpen}
+              aria-haspopup="menu"
+              onClick={() => setAccountOpen((value) => !value)}
+            >
+              <span className="user-avatar" aria-hidden="true">{initials}</span>
+              <span className="user-identity">
+                <span className="user-name">{principal.displayName}</span>
+                <small>{principal.role === "ADMIN" ? "Administrator" : "Read only"}</small>
+              </span>
+              <ChevronDownIcon />
+            </button>
+            {accountOpen && (
+              <div className="account-menu" role="menu" aria-label="Account menu">
+                <div className="account-menu-profile">
+                  <span className="user-avatar user-avatar--large" aria-hidden="true">{initials}</span>
+                  <span><strong>{principal.displayName}</strong><small>{principal.email || principal.username}</small></span>
+                </div>
+                <div className="account-menu-context">
+                  <span><small>Portal role</small><strong>{principal.role === "ADMIN" ? "Administrator" : "Read only"}</strong></span>
+                  <span><small>Signed in with</small><strong>{principal.authenticationProvider === "PING_SAML" ? "Ping SSO" : "Local account"}</strong></span>
+                </div>
+                <button type="button" role="menuitem" onClick={() => void onSignOut()}>Sign out</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

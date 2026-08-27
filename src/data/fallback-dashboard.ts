@@ -19,7 +19,7 @@ export const fallbackDashboard: DashboardData = {
     { id: "hadoop", name: "Hadoop", state: "degraded", status: "Degraded", summary: "Elevated latency" },
     { id: "trino", name: "Trino", state: "degraded", status: "Degraded", summary: "Query performance" },
     { id: "nexus", name: "Nexus", state: "operational", status: "Operational" },
-    { id: "openshift", name: "OpenShift", state: "operational", status: "Operational" },
+    { id: "github-actions", name: "GitHub Actions", state: "operational", status: "Operational" },
   ],
   incident: {
     message: "Hadoop and Trino are experiencing elevated latency.",

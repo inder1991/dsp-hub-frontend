@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 
 import type { ExternalLinks } from "../types/dashboard";
+import type { PortalRole } from "../auth/types";
 import type { PortalPage } from "../types/navigation";
 import {
   ChangesIcon,
@@ -19,12 +20,15 @@ interface SidebarProps {
   activePage: PortalPage;
   links: ExternalLinks;
   onPlanned: (label: string) => void;
+  role: PortalRole;
 }
 
 type NavItem = {
   label: string;
   linkKey?: keyof ExternalLinks;
   page?: PortalPage;
+  href?: string;
+  activeWhen?: PortalPage[];
 };
 
 type NavGroup = {
@@ -35,16 +39,16 @@ type NavGroup = {
 };
 
 const navigation: NavGroup[] = [
-  { id: "my-dsp", label: "My DSP", icon: MyDspIcon, items: [{ label: "My Jobs" }, { label: "Workspaces" }, { label: "Repositories" }, { label: "Activity" }] },
-  { id: "develop", label: "Develop", icon: DevelopIcon, items: [{ label: "Workspaces" }, { label: "Images" }, { label: "Packages" }, { label: "GitHub" }, { label: "Guides", linkKey: "confluenceDsp" }] },
+  { id: "my-dsp", label: "My DSP", icon: MyDspIcon, items: [{ label: "My data access", page: "data-access" }, { label: "Kedro Jobs", page: "jobs" }, { label: "Devspaces", page: "devspaces", activeWhen: ["devspace-detail"] }, { label: "Repositories" }, { label: "Activity" }] },
+  { id: "develop", label: "Develop", icon: DevelopIcon, items: [{ label: "Devspaces", page: "devspaces", activeWhen: ["devspace-detail"] }, { label: "Images" }, { label: "Packages" }, { label: "GitHub" }, { label: "Guides", linkKey: "confluenceDsp" }] },
   { id: "onboarding", label: "Onboarding & training", icon: OnboardingIcon, items: [{ label: "Getting started", page: "onboarding" }, { label: "Access requirements" }, { label: "Training library" }] },
-  { id: "systems", label: "Systems", icon: SystemsIcon, items: [{ label: "VMs" }, { label: "Nexus" }, { label: "Hadoop" }, { label: "Trino" }, { label: "Sybase" }, { label: "Oracle" }, { label: "PostgreSQL" }] },
+  { id: "systems", label: "Systems", icon: SystemsIcon, items: [{ label: "VMs", page: "vms", activeWhen: ["vm-detail"] }, { label: "Nexus" }, { label: "Hadoop" }, { label: "Trino" }, { label: "Sybase" }, { label: "Oracle" }, { label: "PostgreSQL" }] },
   { id: "changes", label: "Changes", icon: ChangesIcon, items: [{ label: "Release Calendar", linkKey: "confluenceReleases" }, { label: "Maintenance", linkKey: "confluenceReleases" }, { label: "Notifications" }] },
   { id: "support", label: "Support", icon: SupportIcon, items: [{ label: "Troubleshooting", page: "support" }, { label: "System Status", linkKey: "confluenceStatus" }, { label: "My Tickets", linkKey: "remedyTickets" }, { label: "Requests", linkKey: "remedyRequests" }] },
   { id: "documentation", label: "Documentation", icon: DocumentationIcon, items: [{ label: "Guides", linkKey: "confluenceDsp" }, { label: "Reference", linkKey: "confluenceDsp" }, { label: "Standards", linkKey: "confluenceDsp" }] },
 ];
 
-export function Sidebar({ activePage, links, onPlanned }: SidebarProps) {
+export function Sidebar({ activePage, links, onPlanned, role }: SidebarProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     "my-dsp": true,
     systems: true,
@@ -57,6 +61,10 @@ export function Sidebar({ activePage, links, onPlanned }: SidebarProps) {
     if (activePage === "onboarding") {
       setExpanded((current) => ({ ...current, onboarding: true }));
     }
+    if (activePage === "data-access" || activePage === "devspaces" || activePage === "devspace-detail" || activePage === "jobs") {
+      setExpanded((current) => ({ ...current, "my-dsp": true }));
+    }
+    if (activePage === "vms" || activePage === "vm-detail") setExpanded((current) => ({ ...current, systems: true }));
   }, [activePage]);
 
   function toggleGroup(groupId: string) {
@@ -87,13 +95,13 @@ export function Sidebar({ activePage, links, onPlanned }: SidebarProps) {
                 <div className="nav-group-items">
                   {group.items.map((item) => {
                     const href = item.linkKey ? links[item.linkKey] : undefined;
-                    if (item.page) {
-                      const isActive = item.page === activePage || (item.page === "support" && activePage === "guide");
+                    if (item.page || item.href) {
+                      const isActive = item.page === activePage || item.activeWhen?.includes(activePage) || (item.page === "support" && activePage === "guide");
                       return (
                         <a
                           aria-current={isActive ? "page" : undefined}
                           className={`nav-item nav-item--internal ${isActive ? "nav-item--active" : ""}`}
-                          href={`#${item.page}`}
+                          href={item.href ?? `#${item.page}`}
                           key={item.label}
                         >
                           <span>{item.label}</span>
@@ -129,8 +137,8 @@ export function Sidebar({ activePage, links, onPlanned }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
-        <span className="release-dot" />
-        <span><strong>Release 1</strong><small>Operational preview</small></span>
+        {role === "ADMIN" && <a className="sidebar-admin-link" href="#admin"><SystemsIcon /><span><strong>Platform admin</strong><small>Open control plane</small></span></a>}
+        <span className="release-context"><span className="release-dot" /><span><strong>Release 1</strong><small>Operational preview</small></span></span>
       </div>
     </aside>
   );
